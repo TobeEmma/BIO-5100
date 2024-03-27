@@ -1,0 +1,72 @@
+# Load required libraries
+library(shiny)
+library(ggplot2)
+library(readr)
+
+# Define UI for application
+ui <- fluidPage(
+  titlePanel("Protein Quantification Assay"),
+  sidebarLayout(
+    sidebarPanel(
+      fileInput("file", "Upload CSV File"),
+      textInput("url", "Enter URL of CSV File"),
+      checkboxInput("header", "Header", TRUE),
+      actionButton("loadData", "Load Data")
+    ),
+    mainPanel(
+      plotOutput("scatterPlot"),
+      textOutput("rSquaredText")  # Output for displaying R-squared value
+    )
+  )
+)
+
+# Define server logic
+server <- function(input, output) {
+  
+  data <- reactive({
+    req(input$loadData)
+    
+    if (!is.null(input$file)) {
+      inFile <- input$file
+      df <- read.csv(inFile$datapath, header = input$header)
+    } else if (!is.null(input$url)) {
+      df <- read.csv(input$url, header = input$header)
+    }
+    
+    return(df)
+  })
+  
+  output$scatterPlot <- renderPlot({
+    req(data())
+    
+    p <- ggplot(data(), aes(x = Concentration, y = RFU)) +
+      geom_point() +
+      geom_smooth(method = "lm", se = FALSE) +  # Add regression line
+      labs(x = "Peptide Concentration (ug/mL)", y = "RFU",  # Change x-axis label
+           title = "Scatter Plot: Peptide Concentration vs RFU")
+    
+    # Calculate R-squared value
+    fit <- lm(RFU ~ Concentration, data = data())
+    rSquared <- summary(fit)$r.squared
+    
+    # Display R-squared value on the plot
+    p <- p + annotate("text", x = Inf, y = -Inf, hjust = 1, vjust = 0,
+                      label = paste("R-squared =", round(rSquared, 3)))
+    
+    return(p)
+  })
+  
+  # Output R-squared value
+  output$rSquaredText <- renderText({
+    req(data())
+    
+    # Calculate R-squared value
+    fit <- lm(RFU ~ Concentration, data = data())
+    rSquared <- summary(fit)$r.squared
+    
+    return(paste("R-squared =", round(rSquared, 3)))
+  })
+}
+
+# Run the application
+shinyApp(ui = ui, server = server)
