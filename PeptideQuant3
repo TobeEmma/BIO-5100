@@ -1,0 +1,50 @@
+# Load required libraries
+library(shiny)
+library(ggplot2)
+library(readr)
+
+# Define UI for application
+ui <- fluidPage(
+  titlePanel("Protein Quantification Assay"),
+  sidebarLayout(
+    sidebarPanel(
+      fileInput("file", "Upload CSV File"),
+      textInput("url", "Enter URL of CSV File"),
+      checkboxInput("header", "Header", TRUE),
+      actionButton("loadData", "Load Data")
+    ),
+    mainPanel(
+      plotOutput("scatterPlot")
+    )
+  )
+)
+
+# Define server logic
+server <- function(input, output) {
+  
+  data <- reactive({
+    req(input$loadData)
+    
+    if (!is.null(input$file)) {
+      inFile <- input$file
+      df <- read.csv(inFile$datapath, header = input$header)
+    } else if (!is.null(input$url)) {
+      df <- read.csv(input$url, header = input$header)
+    }
+    
+    return(df)
+  })
+  
+  output$scatterPlot <- renderPlot({
+    req(data())
+    
+    ggplot(data(), aes(x = Concentration, y = RFU)) +
+      geom_point() +
+      geom_smooth(method = "lm", se = FALSE) +  # Add regression line
+      labs(x = "Concentration", y = "RFU",
+           title = "Scatter Plot: Concentration vs RFU")
+  })
+}
+
+# Run the application
+shinyApp(ui = ui, server = server)
